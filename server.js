@@ -1,54 +1,55 @@
 // server.js
 
-// set up ======================================================================
-// get all the tools we need
-var express  = require('express');
-var app      = express();
-var port     = process.env.PORT || 8080;
-const MongoClient = require('mongodb').MongoClient
-var mongoose = require('mongoose');
-var passport = require('passport');
-var flash    = require('connect-flash');
+// ===== IMPORTS =====
+const express = require('express');
+const mongoose = require('mongoose');
+const passport = require('passport');
+const session = require('express-session');
+const flash = require('connect-flash');
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
+const path = require('path');
 
-var morgan       = require('morgan');
-var cookieParser = require('cookie-parser');
-var bodyParser   = require('body-parser');
-var session      = require('express-session');
+const configDB = require('./config/database.js'); // should export { url: 'mongodb://...' }
 
-var configDB = require('./config/database.js');
+const app = express();
+const port = process.env.PORT || 8080;
 
-var db
+// ===== MONGOOSE CONNECT =====
+mongoose.connect(configDB.url)
+  .then(() => {
+    console.log('✅ Connected to MongoDB via Mongoose');
 
-// configuration ===============================================================
-mongoose.connect(configDB.url, (err, database) => {
-  if (err) return console.log(err)
-  db = database
-  require('./app/routes.js')(app, passport, db);
-}); // connect to our database
+    // Passport config
+    require('./config/passport')(passport);
 
-require('./config/passport')(passport); // pass passport for configuration
+    // Routes (pass only app and passport)
+    require('./app/routes.js')(app, passport);
 
-// set up our express application
-app.use(morgan('dev')); // log every request to the console
-app.use(cookieParser()); // read cookies (needed for auth)
-app.use(bodyParser.json()); // get information from html forms
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'))
+    // Start server AFTER DB connects
+    app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+  })
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
+// ===== MIDDLEWARE =====
+app.use(morgan('dev')); // logging
+app.use(cookieParser()); // read cookies
+app.use(bodyParser.json()); // parse JSON
+app.use(bodyParser.urlencoded({ extended: true })); // parse URL-encoded
 
-app.set('view engine', 'ejs'); // set up ejs for templating
+// Serve static files correctly (fix MIME type issues)
+app.use(express.static(path.join(__dirname, 'public'))); // public/ folder
 
-// required for passport
+// EJS view engine
+app.set('view engine', 'ejs');
+
+// Passport session & flash messages
 app.use(session({
-    secret: 'rcbootcamp2021b', // session secret
-    resave: true,
-    saveUninitialized: true
+  secret: 'rcbootcamp2021b',
+  resave: true,
+  saveUninitialized: true
 }));
 app.use(passport.initialize());
-app.use(passport.session()); // persistent login sessions
-app.use(flash()); // use connect-flash for flash messages stored in session
-
-
-// launch ======================================================================
-app.listen(port);
-console.log('The magic happens on port ' + port);
+app.use(passport.session());
+app.use(flash());
