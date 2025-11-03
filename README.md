@@ -21,4 +21,4 @@ Users can also delete their own posts on the feed as well!
 
 ## Image of Project:
 
-![Doomsday Poster](./img/doomsday.jpeg)
+![Doomsday Poster](public/img/doomsday.jpeg)
