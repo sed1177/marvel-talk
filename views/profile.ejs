@@ -1,68 +1,70 @@
+<!-- formatted code with https://www.freeformatter.com/html-formatter.html#before-output -->
+
 <!doctype html>
 <html>
-<head>
-    <title>21 Savage Fan Site</title>
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="container">
-
-    <div class="page-header text-center">
-        <h1><span class="fa fa-anchor"></span> Profile Page</h1>
-        <a href="/logout" class="btn btn-default btn-sm">Logout</a>
-    </div>
-
-    <div class="row">
-
-        <!-- LOCAL INFORMATION -->
-        <div class="col-sm-6">
-            <div class="well">
-                <h3><span class="fa fa-user"></span> Local</h3>
-
-                <% if (user.local.email) { %>
-                    <p>
-                        <strong>id</strong>: <%= user._id %><br>
-                        <strong>email</strong>: <%= user.local.email %><br>
-                        <strong>password</strong>: <%= user.local.password %>
-                    </p>
-
-                    <a href="/unlink/local" class="btn btn-default">Unlink</a>
-                <% } else { %>
-                    <a href="/connect/local" class="btn btn-default">Connect Local</a>
-                <% } %>
-
+   <head>
+      <title>Marvel Talk - Profile</title>
+      <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
+      <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">
+      <link rel="stylesheet" href="style.css">
+   </head>
+   <body>
+      <div class="container">
+         <div class="page-header text-center">
+            <h1><span class="fa fa-rocket"></span> Marvel Profile</h1>
+            <a href="/logout" class="btn btn-default btn-sm">Logout</a>
+         </div>
+         <div class="row">
+            <!-- USER INFORMATION -->
+            <div class="col-sm-6">
+               <div class="well text-center">
+                  <h3><span class="fa fa-user"></span> Your Info</h3>
+                  <img src="<%= user.avatar || '/img/savage21.png' %>" alt="Avatar" class="img-circle" width="100" height="100">
+                  <p>
+                     <strong>ID:</strong> <%= user._id %><br>
+                     <strong>Email:</strong> <%= user.local.email %>
+                  </p>
+               </div>
             </div>
-        </div>
-        <div class="col-sm-6">
-          <h3>Messages</h3>
-          <ul class="messages">
-          <% for(var i=0; i<messages.length; i++) {%>
-            <li class="message">
-              <span><%= messages[i].name %></span>
-              <span><%= messages[i].msg %></span>
-              <span><%= messages[i].thumbUp %></span>
-              <span><i class="fa fa-thumbs-up" aria-hidden="true"></i></span>
-              <span><i class="fa fa-thumbs-down" aria-hidden="true"></i></span>
-              <span><i class="fa fa-trash" aria-hidden="true"></i></span>
-            </li>
-          <% } %>
-          </ul>
-
-          <h2>Add a message</h2>
-        <% if (user.local.email) { %>
-          <form action="/messages" method="POST">
-            <input type="text" value="<%= user.local.email %>" name="name">
-            <input type="text" placeholder="message" name="msg">
-            <button type="submit">Submit</button>
-          </form>
-        </div>
-        <% } %>
-
-</div>
-
-<script src="main.js"></script>
-
-</body>
+            <!-- USER POSTS -->
+            <div class="col-sm-6">
+               <h3>Your Marvel Posts</h3>
+               <ul class="messages list-unstyled">
+                  <% for (var i = 0; i < posts.length; i++) { %>
+                  <% if (posts[i].user === user.local.email) { %>
+                  <li class="message well">
+                     <strong><%= posts[i].user %></strong><br>
+                     <p><%= posts[i].content %></p>
+                     <% if (posts[i].imageUrl) { %>
+                     <img src="<%= posts[i].imageUrl %>" alt="Post Image" style="max-width:200px;">
+                     <% } %>
+                     <div>
+                        Likes: <%= posts[i].likes || 0 %> 
+                        <button class="btn btn-xs btn-success thumbs-up" data-id="<%= posts[i]._id %>">
+                        <i class="fa fa-thumbs-up"></i>
+                        </button>
+                        Dislikes: <%= posts[i].dislikes || 0 %> 
+                        <button class="btn btn-xs btn-danger thumbs-down" data-id="<%= posts[i]._id %>">
+                        <i class="fa fa-thumbs-down"></i>
+                        </button>
+                        <button class="btn btn-xs btn-warning delete-post" data-id="<%= posts[i]._id %>">
+                        <i class="fa fa-trash"></i>
+                        </button>
+                     </div>
+                  </li>
+                  <% } %>
+                  <% } %>
+               </ul>
+               <!-- ADD NEW POST -->
+               <h4>Add a new Marvel post</h4>
+               <form action="/post" method="POST">
+                  <textarea class="form-control" name="content" placeholder="Write something about Marvel..." required></textarea><br>
+                  <input type="text" name="imageUrl" placeholder="Optional image URL" class="form-control"><br>
+                  <button type="submit" class="btn btn-primary">Post</button>
+               </form>
+            </div>
+         </div>
+      </div>
+      <script src="main.js"></script>
+   </body>
 </html>

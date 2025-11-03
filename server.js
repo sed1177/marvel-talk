@@ -9,47 +9,47 @@ const flash = require('connect-flash');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
+const multer = require('multer');
 const path = require('path');
 
-const configDB = require('./config/database.js'); // should export { url: 'mongodb://...' }
+const configDB = require('./config/database.js');
 
 const app = express();
 const port = process.env.PORT || 8080;
+
+// using multer for uploading files (looking for an alternative)
+const upload = multer({ dest: 'public/uploads/' });
+
+// ===== MIDDLEWARE =====
+app.use(morgan('dev'));
+app.use(cookieParser());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+app.set('view engine', 'ejs');
+
+app.use(session({
+  secret: 'rcbootcamp2021b',
+  resave: true,
+  saveUninitialized: true
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(flash());
 
 // ===== MONGOOSE CONNECT =====
 mongoose.connect(configDB.url)
   .then(() => {
     console.log('✅ Connected to MongoDB via Mongoose');
 
-    // Passport config
+    // ===== PASSPORT CONFIG =====
     require('./config/passport')(passport);
 
-    // Routes (pass only app and passport)
-    require('./app/routes.js')(app, passport);
+    // ===== ROUTES =====
+    require('./app/routes.js')(app, passport, upload);
 
-    // Start server AFTER DB connects
+    // ===== START SERVER =====
     app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
   })
   .catch(err => console.error('❌ MongoDB connection error:', err));
-
-// ===== MIDDLEWARE =====
-app.use(morgan('dev')); // logging
-app.use(cookieParser()); // read cookies
-app.use(bodyParser.json()); // parse JSON
-app.use(bodyParser.urlencoded({ extended: true })); // parse URL-encoded
-
-// Serve static files correctly (fix MIME type issues)
-app.use(express.static(path.join(__dirname, 'public'))); // public/ folder
-
-// EJS view engine
-app.set('view engine', 'ejs');
-
-// Passport session & flash messages
-app.use(session({
-  secret: 'rcbootcamp2021b',
-  resave: true,
-  saveUninitialized: true
-}));
-app.use(passport.initialize());
-app.use(passport.session());
-app.use(flash());

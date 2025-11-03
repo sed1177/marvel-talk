@@ -1,141 +1,142 @@
- /*
-I used chatGPT.com to figure out the answer, then read some sources to understand why chatgpt came to the conclusion my code 
-was built for a MongoClient rather than mongoose! So i read documentation to use a schema and implement the schema in the code 
+// app/routes.js
+const Post = require('./models/post.js');
 
+module.exports = function(app, passport, upload) {
 
-https://mongoosejs.com/docs/models.html
-
-
-*/
-
-const mongoose = require('mongoose');
-
-// Define a simple Message schema
-const messageSchema = new mongoose.Schema({
-  name: String,
-  msg: String,
-  thumbUp: { type: Number, default: 0 },
-  thumbDown: { type: Number, default: 0 }
-});
-
-const Message = mongoose.model('Message', messageSchema);
-
-module.exports = function(app, passport) {
-
-  // normal routes ===============================================================
-  // show the home page (will also have our login links)
-  app.get('/', function(req, res) {
-    res.render('index.ejs');
-  });
-
-  // PROFILE SECTION =========================
-  app.get('/profile', isLoggedIn, async function(req, res) {
-    try {
-      const messages = await Message.find().lean();
-      res.render('profile.ejs', {
-        user: req.user,
-        messages: messages
-      });
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Error loading messages');
+  // ===== ROOT =====
+  app.get('/', (req, res) => {
+    if (req.user) {
+      res.redirect('/feed');
+    } else {
+      res.render('index');
     }
   });
 
-  // LOGOUT ==============================
-  app.get('/logout', function(req, res) {
-    req.logout(() => {
-      console.log('User has logged out!');
-    });
-    res.redirect('/');
-  });
-
-  // message board routes ===============================================================
-
-  app.post('/messages', async (req, res) => {
-    try {
-      const newMessage = new Message({
-        name: req.body.name,
-        msg: req.body.msg,
-        thumbUp: 0,
-        thumbDown: 0
-      });
-      await newMessage.save();
-      console.log('saved to database');
-      res.redirect('/profile');
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Failed to save message');
-    }
-  });
-
-  app.put('/messages', async (req, res) => {
-    try {
-      const result = await Message.findOneAndUpdate(
-        { name: req.body.name, msg: req.body.msg },
-        { $inc: { thumbUp: 1 } },
-        { new: true, upsert: true }
-      );
-      res.send(result);
-    } catch (err) {
-      console.error(err);
-      res.status(500).send(err);
-    }
-  });
-
-  app.delete('/messages', async (req, res) => {
-    try {
-      await Message.findOneAndDelete({ name: req.body.name, msg: req.body.msg });
-      res.send('Message deleted!');
-    } catch (err) {
-      console.error(err);
-      res.status(500).send(err);
-    }
-  });
-
-  // =============================================================================
-  // AUTHENTICATE (FIRST LOGIN) ==================================================
-  // =============================================================================
-
-  // LOGIN ===============================
-  app.get('/login', function(req, res) {
-    res.render('login.ejs', { message: req.flash('loginMessage') });
+  // ===== LOGIN =====
+  app.get('/login', (req, res) => {
+    res.render('login', { message: req.flash('loginMessage') });
   });
 
   app.post('/login', passport.authenticate('local-login', {
-    successRedirect: '/profile',
+    successRedirect: '/feed',
     failureRedirect: '/login',
     failureFlash: true
   }));
 
-  // SIGNUP ===============================
-  app.get('/signup', function(req, res) {
-    res.render('signup.ejs', { message: req.flash('signupMessage') });
+  // ===== SIGNUP =====
+  app.get('/signup', (req, res) => {
+    res.render('signup', { message: req.flash('signupMessage') });
   });
 
   app.post('/signup', passport.authenticate('local-signup', {
-    successRedirect: '/profile',
+    successRedirect: '/feed',
     failureRedirect: '/signup',
     failureFlash: true
   }));
 
-  // =============================================================================
-  // UNLINK ACCOUNTS =============================================================
-  // =============================================================================
-  app.get('/unlink/local', isLoggedIn, function(req, res) {
-    var user = req.user;
-    user.local.email = undefined;
-    user.local.password = undefined;
-    user.save(function(err) {
-      res.redirect('/profile');
+  // ===== LOGOUT =====
+  app.get('/logout', (req, res, next) => {
+    req.logout(function(err) {
+      if (err) return next(err);
+      res.redirect('/');
     });
   });
+
+  // ===== FEED =====
+  app.get('/feed', (req, res) => {
+    if (!req.user) return res.redirect('/login');
+
+    Post.find().sort({ createdAt: -1 }).lean()
+      .then(posts => {
+        res.render('feed', { user: req.user, posts });
+      })
+      .catch(err => {
+        console.error(err);
+        res.status(500).send('Error loading feed');
+      });
+  });
+
+  // ===== PROFILE =====
+  app.get('/profile', (req, res) => {
+    if (!req.user) return res.redirect('/login');
+
+    Post.find({ user: req.user.local.email }).sort({ createdAt: -1 }).lean()
+      .then(posts => {
+        res.render('profile', { user: req.user, posts });
+      })
+      .catch(err => {
+        console.error(err);
+        res.status(500).send('Error loading profile');
+      });
+  });
+
+  // post route 
+  app.post('/post', upload.single('image'), (req, res) => {
+    if (!req.user) return res.redirect('/login')
+
+    const newPost = new Post({
+      user: req.user.local.email,
+      avatar: req.user.avatar || '/img/default-avatar.png',
+      content: req.body.content,
+      imageUrl: req.body.imageUrl || (req.file ? `/uploads/${req.file.filename}` : '')
+    });
+
+    // save post then redirect to the live feed
+    newPost.save()
+      .then(() => res.redirect('/feed'))
+      .catch(err => {
+        console.error(err);
+        res.status(500).send('Failed to create post');
+      });
+  });
+
+  // ===== LIKE =====
+  app.put('/post/like', (req, res) => {
+    if (!req.user) return res.status(401).send('Unauthorized');
+
+    Post.findByIdAndUpdate(req.body.id, { $inc: { likes: 1 } }, { new: true })
+      .then(post => res.send(post))
+      .catch(err => res.status(500).send(err));
+  });
+
+  // ===== DISLIKE =====
+  app.put('/post/dislike', (req, res) => {
+    if (!req.user) return res.status(401).send('Unauthorized');
+
+    Post.findByIdAndUpdate(req.body.id, { $inc: { dislikes: 1 } }, { new: true })
+      .then(post => res.send(post))
+      .catch(err => res.status(500).send(err));
+  });
+
+  // ===== DELETE POST (DELETE method) =====
+  app.delete('/post', (req, res) => {
+    if (!req.user) return res.status(401).send('Unauthorized');
+
+    Post.findOneAndDelete({ _id: req.body.id, user: req.user.local.email })
+      .then(() => res.send('Post deleted!'))
+      .catch(err => res.status(500).send(err));
+  });
+
+  // ===== DELETE POST (POST method for form compatibility) =====
+  app.post('/post/delete/:id', async (req, res) => {
+    try {
+      if (!req.user) return res.redirect('/login');
+      
+      const post = await Post.findById(req.params.id);
+      if (!post) {
+        return res.status(404).send('Post not found');
+      }
+
+      if (post.user !== req.user.local.email) {
+        return res.status(403).send('You can only delete your own posts!');
+      }
+
+      await Post.findByIdAndDelete(req.params.id);
+      res.redirect('/feed');
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Error deleting post');
+    }
+  });
+
 };
-
-// route middleware to ensure user is logged in
-function isLoggedIn(req, res, next) {
-  if (req.isAuthenticated())
-    return next();
-
-  res.redirect('/');
-}
