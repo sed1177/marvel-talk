@@ -22,3 +22,5 @@ Users can also delete their own posts on the feed as well!
 ## Image of Project:
 
 ![Doomsday Poster](public/img/marvel-talk.jpg)
+
+[Live Link](https://marvel-talk.up.railway.app/)
