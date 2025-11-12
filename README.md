@@ -17,7 +17,7 @@ Users can also delete their own posts on the feed as well!
 - Learned how to utilize Multer for uploading files
 - Learned how to build a timeline feed for all the posts to live on!
 - Learned how to integrate an authentication system for all users
-- Learned how to setup my schema for Posts, and 
+- Learned how to setup my schema for Posts, and Users
 
 ## Image of Project:
 
